@@ -35,7 +35,16 @@ library(ggplot2)
 library(reshape2)
 library(knitr)
 library(naniar)
+library(caret)
+library(pROC)
 ```
+
+1. Download the classification output data set.
+```{r}
+CLASS_OUT_URL <- 'https://raw.githubusercontent.com/Megabuster/DATA_621_Public/refs/heads/main/hw2/classification-output-data.csv'
+class_out_data <- read.csv(CLASS_OUT_URL)
+```
+
 
 2.  The data set has three key columns we will use:  class: the actual
     class for the observation  scored.class: the predicted class for
@@ -85,10 +94,46 @@ Verify that you get an accuracy and an error rate that sums to one.
 
 𝐹1 𝑆𝑐𝑜𝑟𝑒 = (2 × 𝑃𝑟𝑒𝑐𝑖𝑠𝑖𝑜𝑛 × 𝑆𝑒𝑛𝑠𝑖𝑡𝑖𝑣𝑖𝑡𝑦) / (𝑃𝑟𝑒𝑐𝑖𝑠𝑖𝑜𝑛 + 𝑆𝑒𝑛𝑠𝑖𝑡𝑖𝑣𝑖𝑡𝑦)
 
+```{r}
+f1_score <- function(df) {
+  precision <- precision(df)
+  sensitivity <- sensitivity(df)
+  denom <- precision + sensitivity
+  if (denom == 0) {
+    print('Attempting to divide by 0. Returning NA.')
+    return (NA)
+  } else {
+    return ((2 * precision * sensitivity) / denom)
+  }
+}
+
+f1_score(class_out_data)
+```
+
 9.  Before we move on, let’s consider a question that was asked: What
     are the bounds on the F1 score? Show that the F1 score will always
     be between 0 and 1. (Hint: If 0 \< 𝑎 \< 1 and 0 \< 𝑏 \< 1 then 𝑎𝑏 \<
     𝑎.)
+    
+    TP + TN + FP + FN = 1
+    
+    This means that the value of each variable is always between 0 and 1 inclusive.     Precision and sensitivity are always in that same range as the denominators of     TP + FP and TP + FN respectively are always equal or larger than the               numerator TP. 
+
+    We've established that both factors of the F1 score are always between 0 and 1,     but how about 2 times their combined values? If the product of a and b is
+    always smaller than or equal to a when a and b are between 0 and 1 (inclusive),     this means their product is also always smaller or equal to b. In the most 
+    extreme case, consider these equations:
+    a*b = a and a*b = b
+    2 * a*b = a + b
+    Take each equation and combine them:
+    -> a*b + a*b = a*b + a*b 
+    
+    This means when we substitute the equivalent parts, the upper bound is 1. The
+    lower bound when everything is 0 is technically undefined as 2*0 / 0+0, but        this can only happen if TN = 1. This means the model has no impact on 
+    identifying positives and can be discarded when determining our range.
+    
+    In order to get the bottom bound, we can assume that only one of precision or
+    specificity is 0. We get 0 / (precision or specificity) which is 0. This
+    completes our range of 0-1 inclusive.
 
 10. Write a function that generates an ROC curve from a data set with a
     true classification column (class in our example) and a probability
@@ -97,6 +142,23 @@ Verify that you get an accuracy and an error rate that sums to one.
     that contains the calculated area under the curve (AUC). Note that I
     recommend using a sequence of thresholds ranging from 0 to 1 at 0.01
     intervals.
+    
+```{r}
+roc_curve <- function(true_class, prob) {
+  roc_obj <- roc(true_class, prob)
+  roc_plot <- plot(roc_obj, main = 'ROC Curve')
+  auc_area <- auc(roc_obj)
+  return (c(
+    roc_plot,
+    auc_area
+  ))
+    
+}
+
+roc_vect <- roc_curve(class_out_data$class, class_out_data$scored.probability)
+roc_vect$auc
+```
+    
 
 11. Use your created R functions and the provided classification output
     data set to produce all of the classification metrics discussed
