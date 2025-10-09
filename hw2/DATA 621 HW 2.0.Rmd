@@ -1,0 +1,175 @@
+---
+title: "Homework 2: Classification Metrics"
+author: "Leslie Tavarez, Candace Grant, Lawrence Yu, Jackie Yee"
+format: pdf
+editor: visual
+output:
+  pdf_document: default
+  html_document:
+    includes:
+      in_header: header.html
+    css: ./lab.css
+    highlight: pygments
+    theme: class_errorulean
+    toc: true
+    toc_float: true
+editor_options: 
+  chunk_output_type: inline
+  markdown: 
+    wrap: 72
+---
+
+```{r load-packages, message=FALSE}
+#| include: false
+library(tidyverse)
+library(openintro)
+library(VIM)
+library(gridExtra)
+library(psych)
+library(corrplot)
+library(car)
+library(VGAM)
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+library(knitr)
+library(naniar)
+```
+
+1.
+
+```{r}
+url <- "https://raw.githubusercontent.com/Megabuster/DATA_621_Public/refs/heads/main/hw2/classification-output-data.csv"
+data <- read.csv(url)
+summary(head(data))
+```
+
+
+2. The data set has three key columns we will use:
+ class: the actual class for the observation
+ scored.class: the predicted class for the observation (based on a threshold of 0.5)
+ scored.probability: the predicted probability of success for the observation
+Use the table() function to get the raw confusion matrix for this scored dataset. 
+
+Make sure you understand the output. In particular, do the rows represent the actual or predicted class? The columns?
+
+
+```{r confusion-matrix}
+conf_matrix <- table(data$class, data$scored.class)
+dimnames(conf_matrix) <- list(Actual = c("1", "0"), Predicted = c("1", "0"))
+print(conf_matrix)
+
+```
+
+From the confusion matrix, we see rows that represent the actual values of the data, while the columns represent the predicted values. The values in the output that are diagonal represents the accurate predictions of the data, while the other fields are represented by incorrect predictions. In this matrix, the output is particular in which we can infer that there are 119 true positives (TP), 5 false negatives (FN), 30 false positives (FP) and 27 true negatives (TN).
+
+3. Write a function that takes the data set as a dataframe, with actual and predicted classifications identified,
+and returns the accuracy of the predictions.
+
+𝐴𝑐𝑐𝑢𝑟𝑎𝑐𝑦 = (𝑇𝑃 + 𝑇𝑁) / (𝑇𝑃 + 𝐹𝑃 + 𝑇𝑁 + 𝐹𝑁)
+
+Created a cross tabulation function that sums true positives, negatives and false positives and negatives to be used later on for the calculations. The actual and predicted classifications are identified as true positive (TP), false negative (FN), false positive (FP) and true negative (TN) in the function below.
+
+```{r}
+classify_metrics <- function(actual, predicted) {
+  tbl <- table(actual, predicted)
+  list(
+    TP = tbl[1, 1],
+    FN = tbl[1, 2], 
+    FP = tbl[2, 1],
+    TN = tbl[2, 2]
+  )
+}
+```
+
+The created function calculates the accuracy of the predictions through taking the dataset as a dataframe (df) and return the accuracy.
+
+```{r}
+calc_accuracy <- function(df, actual, predicted) {
+  actual <- df[[actual]]
+  predicted <- df[[predicted]]
+  tab <- classify_metrics(actual, predicted)
+  accuracy <- (tab$TP + tab$TN) / (tab$TP + tab$FP + tab$TN + tab$FN) 
+  return(accuracy)
+}
+```
+
+Call and print the accuracy result through calling the calc_accuracy function and the three parameters.
+
+```{r}
+accuracy <- calc_accuracy(data, 'class','scored.class')
+print(accuracy)
+```
+
+4. Write a function that takes the data set as a dataframe, with actual and predicted classifications identified,
+and returns the classification error rate of the predictions.
+
+𝐶𝑙𝑎𝑠𝑠𝑖𝑓𝑖𝑐𝑎𝑡𝑖𝑜𝑛 𝐸𝑟𝑟𝑜𝑟 𝑅𝑎𝑡𝑒 = (𝐹𝑃 + 𝐹𝑁) / (𝑇𝑃 + 𝐹𝑃 + 𝑇𝑁 + 𝐹𝑁)
+
+Verify that you get an accuracy and an error rate that sums to one.
+
+The created function calculates the classification error rate of the predictions through taking the dataset as a dataframe (df) and return the classification error rate.
+
+```{r}
+calc_class_error <- function(df, actual, predicted) {
+  actual <- df[[actual]]
+  predicted <- df[[predicted]]
+  tab <- classify_metrics(actual, predicted)
+  class_error <- (tab$FP + tab$FN) / (tab$TP + tab$TN + tab$FP + tab$FN)
+  return(class_error)
+}
+```
+
+Call and print the classification error rate through calling the calc_class_error function and the three parameters.
+
+```{r}
+class_error <- calc_class_error(data, 'class', 'scored.class')
+print(class_error)
+```
+
+The provided classification model has a classification error rate of 19%.
+
+```{r}
+sum_one <- class_error+accuracy
+print(sum_one)
+```
+
+Sum_one verifies that the accuracy and classification error rate for the predictions add up to 1.
+
+5. Write a function that takes the data set as a dataframe, with actual and predicted classifications identified,
+and returns the precision of the predictions.
+
+𝑃𝑟𝑒𝑐𝑖𝑠𝑖𝑜𝑛 = (𝑇𝑃) / (𝑇𝑃 + 𝐹𝑃)
+
+6. Write a function that takes the data set as a dataframe, with actual and predicted classifications identified,
+and returns the sensitivity of the predictions. Sensitivity is also known as recall.
+
+𝑆𝑒𝑛𝑠𝑖𝑡𝑖𝑣𝑖𝑡𝑦 = (𝑇𝑃) / (𝑇𝑃 + 𝐹𝑁)
+
+7. Write a function that takes the data set as a dataframe, with actual and predicted classifications identified,
+and returns the specificity of the predictions.
+
+𝑆𝑝𝑒𝑐𝑖𝑓𝑖𝑐𝑖𝑡𝑦 = (𝑇𝑁) /  (𝑇𝑁 + 𝐹𝑃)
+
+8. Write a function that takes the data set as a dataframe, with actual and predicted classifications identified,
+and returns the F1 score of the predictions.
+
+𝐹1 𝑆𝑐𝑜𝑟𝑒 = (2 × 𝑃𝑟𝑒𝑐𝑖𝑠𝑖𝑜𝑛 × 𝑆𝑒𝑛𝑠𝑖𝑡𝑖𝑣𝑖𝑡𝑦) /  (𝑃𝑟𝑒𝑐𝑖𝑠𝑖𝑜𝑛 + 𝑆𝑒𝑛𝑠𝑖𝑡𝑖𝑣𝑖𝑡𝑦)
+
+9. Before we move on, let’s consider a question that was asked: What are the bounds on the F1 score? Show
+that the F1 score will always be between 0 and 1. (Hint: If 0 < 𝑎 < 1 and 0 < 𝑏 < 1 then 𝑎𝑏 < 𝑎.)
+
+10. Write a function that generates an ROC curve from a data set with a true classification column (class in our
+example) and a probability column (scored.probability in our example). Your function should return a list
+that includes the plot of the ROC curve and a vector that contains the calculated area under the curve
+(AUC). Note that I recommend using a sequence of thresholds ranging from 0 to 1 at 0.01 intervals.
+
+11. Use your created R functions and the provided classification output data set to produce all of the
+classification metrics discussed above.
+
+12. Investigate the caret package. In particular, consider the functions confusionMatrix, sensitivity, and
+specificity. Apply the functions to the data set. How do the results compare with your own functions?
+
+13. Investigate the pROC package. Use it to generate an ROC curve for the data set. How do the results
+compare with your own functions?
