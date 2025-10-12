@@ -1,0 +1,431 @@
+---
+title: "Homework 2: Classification Metrics"
+author: "Leslie Tavarez, Candace Grant, Lawrence Yu, Jackie Yee"
+format: pdf
+editor: visual
+output:
+  pdf_document: default
+  html_document:
+    includes:
+      in_header: header.html
+    css: ./lab.css
+    highlight: pygments
+    theme: class_errorulean
+    toc: true
+    toc_float: true
+editor_options: 
+  chunk_output_type: inline
+  markdown: 
+    wrap: 72
+---
+
+```{r load-packages, message=FALSE, include: false}
+
+library(tidyverse)
+library(openintro)
+library(VIM)
+library(gridExtra)
+library(psych)
+library(corrplot)
+library(car)
+library(VGAM)
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+library(knitr)
+
+
+```
+
+**Question 1**
+
+```{r}
+url <- "https://raw.githubusercontent.com/Megabuster/DATA_621_Public/refs/heads/main/hw2/classification-output-data.csv"
+data <- read.csv(url)
+
+
+#data <- read.csv("classification-output-data.csv")
+summary(head(data, 10))
+```
+
+**Question 2**. The data set has three key columns we will use:  class:
+the actual class for the observation  scored.class: the predicted class
+for the observation (based on a threshold of 0.5)  scored.probability:
+the predicted probability of success for the observation. Use the
+table() function to get the raw confusion matrix for this scored
+dataset.
+
+Make sure you understand the output. In particular, do the rows
+represent the actual or predicted class? The columns?
+
+```{r confusion-matrix}
+conf_matrix <- table(Actual = data$class, Predicted = data$scored.class)
+
+dimnames(conf_matrix) <- list(Actual = c("1", "0"), Predicted = c("1", "0"))
+print(conf_matrix)
+
+
+```
+
+**Question 2** Response: From the confusion matrix, we see rows that
+represent the actual values of the data, while the columns represent the
+predicted values. The values in the output that are diagonal represents
+the accurate predictions of the data, while the other fields are
+represented by incorrect predictions.
+
+**Question 2 Response** In this matrix, the output is particular in
+which we can infer that there are 119 true positives (TP), 5 false
+negatives (FN), 30 false positives (FP) and 27 true negatives (TN).
+
+**Question 3** Write a function that takes the data set as a dataframe,
+with actual and predicted classifications identified, and returns the
+accuracy of the predictions.
+
+𝐴𝑐𝑐𝑢𝑟𝑎𝑐𝑦 = (𝑇𝑃 + 𝑇𝑁) / (𝑇𝑃 + 𝐹𝑃 + 𝑇𝑁 + 𝐹𝑁)
+
+**Question 3 Response** Created a cross tabulation function that sums
+true positives, negatives and false positives and negatives to be used
+later on for the calculations. The actual and predicted classifications
+are identified as true positive (TP), false negative (FN), false
+positive (FP) and true negative (TN) in the function below.
+
+```{r}
+classify_metrics <- function(actual, predicted) {
+  tbl <- table(actual, predicted)
+  list(
+    TP = tbl[1, 1],
+    FN = tbl[1, 2], 
+    FP = tbl[2, 1],
+    TN = tbl[2, 2]
+  )
+}
+```
+
+The created function calculates the accuracy of the predictions through
+taking the dataset as a dataframe (df) and return the accuracy.
+
+```{r}
+calc_accuracy <- function(df, actual, predicted) {
+  actual <- df[[actual]]
+  predicted <- df[[predicted]]
+  tab <- classify_metrics(actual, predicted)
+  accuracy <- (tab$TP + tab$TN) / (tab$TP + tab$FP + tab$TN + tab$FN) 
+  return(accuracy)
+}
+```
+
+Call and print the accuracy result through calling the calc_accuracy
+function and the three parameters.
+
+```{r}
+accuracy <- calc_accuracy(data, 'class','scored.class')
+print(accuracy)
+```
+
+**Question 4** Write a function that takes the data set as a dataframe,
+with actual and predicted classifications identified, and returns the
+classification error rate of the predictions.
+
+𝐶𝑙𝑎𝑠𝑠𝑖𝑓𝑖𝑐𝑎𝑡𝑖𝑜𝑛 𝐸𝑟𝑟𝑜𝑟 𝑅𝑎𝑡𝑒 = (𝐹𝑃 + 𝐹𝑁) / (𝑇𝑃 + 𝐹𝑃 + 𝑇𝑁 + 𝐹𝑁)
+
+**Question 4 Response** The created function calculates the
+classification error rate of the predictions through taking the dataset
+as a dataframe (df) and return the classification error rate.
+
+```{r}
+calc_class_error <- function(df, actual, predicted) {
+  actual <- df[[actual]]
+  predicted <- df[[predicted]]
+  tab <- classify_metrics(actual, predicted)
+  class_error <- (tab$FP + tab$FN) / (tab$TP + tab$TN + tab$FP + tab$FN)
+  return(class_error)
+}
+```
+
+Call and print the classification error rate through calling the
+calc_class_error function and the three parameters.
+
+```{r}
+class_error <- calc_class_error(data, 'class', 'scored.class')
+print(class_error)
+```
+
+The provided classification model has a classification error rate of
+19%.
+
+```{r}
+sum_one <- class_error+accuracy
+print(sum_one)
+```
+
+Sum_one verifies that the accuracy and classification error rate for the
+predictions add up to 1.
+
+**Question 5** Write a function that takes the data set as a dataframe,
+with actual and predicted classifications identified, and returns the
+precision of the predictions.
+
+𝑃𝑟𝑒𝑐𝑖𝑠𝑖𝑜𝑛 = (𝑇𝑃) / (𝑇𝑃 + 𝐹𝑃) **Question 5 Response**
+
+```{r}
+calc_precision <- function(df, actual, predicted) {
+  actual <- df[[actual]]
+  predicted <- df[[predicted]]
+  tab <- classify_metrics(actual, predicted)
+  precision <- tab$TP / (tab$TP + tab$FP)
+  return(precision)
+  
+precision <- calc_precision(data, 'class', 'scored.class')
+print(precision)
+}
+```
+
+**Question 6** Write a function that takes the data set as a dataframe,
+with actual and predicted classifications identified, and returns the
+sensitivity of the predictions. Sensitivity is also known as recall.
+
+```         
+𝑆𝑒𝑛𝑠𝑖𝑡𝑖𝑣𝑖𝑡𝑦 = (𝑇𝑃) / (𝑇𝑃 + 𝐹𝑁)
+```
+
+**Question 6 Response**
+
+```{r}
+calc_sensitivity <- function(df, actual, predicted) {
+  actual <- df[[actual]]
+  predicted <- df[[predicted]]
+  tab <- classify_metrics(actual, predicted)
+  sensitivity <- tab$TP / (tab$TP + tab$FN)
+  return(sensitivity)
+  
+sensitivity <- calc_sensitivity(data, 'class', 'scored.class')
+print(sensitivity)
+}
+
+```
+
+**Question 7** Write a function that takes the data set as a dataframe,
+with actual and predicted classifications identified, and returns the
+specificity of the predictions.
+
+𝑆𝑝𝑒𝑐𝑖𝑓𝑖𝑐𝑖𝑡𝑦 = (𝑇𝑁) / (𝑇𝑁 + 𝐹𝑃)
+
+**Question 7 Response**
+
+```{r}
+calc_specificity <- function(df, actual, predicted) {
+  actual <- df[[actual]]
+  predicted <- df[[predicted]]
+  tab <- classify_metrics(actual, predicted)
+  specificity <- tab$TN / (tab$TN + tab$FP)
+  return(specificity)
+  
+specificity <- calc_specificity(data, 'class', 'scored.class')
+print(specificity)
+}
+
+```
+
+**Question 8** Write a function that takes the data set as a dataframe,
+with actual and predicted classifications identified, and returns the F1
+score of the predictions.
+
+𝐹1 𝑆𝑐𝑜𝑟𝑒 = (2 × 𝑃𝑟𝑒𝑐𝑖𝑠𝑖𝑜𝑛 × 𝑆𝑒𝑛𝑠𝑖𝑡𝑖𝑣𝑖𝑡𝑦) / (𝑃𝑟𝑒𝑐𝑖𝑠𝑖𝑜𝑛 + 𝑆𝑒𝑛𝑠𝑖𝑡𝑖𝑣𝑖𝑡𝑦)
+
+```{r}
+calc_f1_score <- function(df, actual, predicted) {
+  actual <- df[[actual]]
+  predicted <- df[[predicted]]
+  tab <- classify_metrics(actual, predicted)
+  
+  precision <- tab$TP / (tab$TP + tab$FP)
+  sensitivity <- tab$TP / (tab$TP + tab$FN)
+  
+  f1_score <- (2 * precision * sensitivity) / (precision + sensitivity)
+  return(f1_score)
+  
+f1_score <- calc_f1_score(data, 'class', 'scored.class')
+print(f1_score)
+}
+```
+
+**Question 9**. Before we move on, let’s consider a question that was
+asked: What are the bounds on the F1 score? Show that the F1 score will
+always be between 0 and 1. (Hint: If 0 \< 𝑎 \< 1 and 0 \< 𝑏 \< 1 then 𝑎𝑏
+\< 𝑎.)
+
+**Question 9 Response**
+
+```         
+TP + TN + FP + FN = 1
+```
+
+This means that the value of each variable is always between 0 and 1
+inclusive. Precision and sensitivity are always in that same range as
+the denominators of TP + FP and TP + FN respectively are always equal or
+larger than the numerator TP.
+
+We've established that both factors of the F1 score are always between 0
+and 1, but how about 2 times their combined values? If the product of a
+and b is always smaller than or equal to a when a and b are between 0
+and 1 (inclusive), this means their product is also always smaller or
+equal to b. In the most extreme case, consider these equations: a*b = a
+and a*b = b 2 \* a*b = a + b Take each equation and combine them: -\>
+a*b + a*b = a*b + a\*b
+
+This means when we substitute the equivalent parts, the upper bound
+is 1. The lower bound when everything is 0 is technically undefined as
+2\*0 / 0+0, but this can only happen if TN = 1. This means the model has
+no impact on identifying positives and can be discarded when determining
+our range.
+
+In order to get the bottom bound, we can assume that only one of
+precision or specificity is 0. We get 0 / (precision or specificity)
+which is 0. This completes our range of 0-1 inclusive.
+
+**Question 10**. Write a function that generates an ROC curve from a
+data set with a true classification column (class in our example) and a
+probability column (scored.probability in our example). Your function
+should return a list that includes the plot of the ROC curve and a
+vector that contains the calculated area under the curve (AUC). Note
+that I recommend using a sequence of thresholds ranging from 0 to 1 at
+0.01 intervals.
+
+**Question 10 Response**
+
+```{r}
+library(pROC)
+roc_curve <- function(true_class, prob) {
+  roc_obj <- roc(true_class, prob)
+  roc_plot <- plot(roc_obj, main = 'ROC Curve')
+  auc_area <- auc(roc_obj)
+  return (c(
+    roc_plot,
+    auc_area
+  ))
+    
+}
+
+roc_vect <- roc_curve(data$class, data$scored.probability)
+roc_vect$auc
+```
+
+**Question 11**. Use your created R functions and the provided
+classification output data set to produce all of the classification
+metrics discussed above.
+
+```{r}
+# Compute all custom metrics
+accuracy     <- calc_accuracy(data, "class", "scored.class")
+error_rate   <- calc_class_error(data, "class", "scored.class")
+precision    <- calc_precision(data, "class", "scored.class")
+sensitivity  <- calc_sensitivity(data, "class", "scored.class")
+specificity  <- calc_specificity(data, "class", "scored.class")
+f1_score     <- calc_f1_score(data, "class", "scored.class")
+auc_value    <- roc_results$auc # Get AUC from ROC function in Q10
+
+
+# Combine everything in a table
+metrics_df <- data.frame(
+  Metric = c("Accuracy", "Classification Error Rate", "Precision",
+             "Sensitivity (Recall)", "Specificity", "F1 Score", "AUC"),
+  Value = round(c(accuracy, error_rate, precision, sensitivity, specificity, f1_score, auc_value), 4)
+)
+
+knitr::kable(metrics_df, caption = "Classification Metrics Summary")
+
+
+
+```
+
+**Question 11 Response:** The model achieved an accuracy of ≈ 0.81 and
+an AUC of ≈ 0.85, indicating solid overall predictive performance. High
+recall (0.96) shows that the model identifies nearly all positive cases,
+but its lower specificity (0.47) suggests it struggles to correctly
+classify negatives, leading to more false positives. The F1 score (0.87)
+reflects a good balance between precision and recall. In summary, the
+model favors sensitivity over specificity, which might be desirable if
+missing a positive case is more costly than a false alarm.
+
+**Question 12**. Investigate the caret package. In particular, consider
+the functions confusion Matrix, sensitivity, and specificity. Apply the
+functions to the data set. How do the results compare with your own
+functions?
+
+```{r}
+# Load caret
+library(caret)
+
+# Ensure both columns are factors with the same level order
+data$class <- factor(as.character(data$class), levels = c("0", "1"))
+data$scored.class <- factor(as.character(data$scored.class), levels = c("0", "1"))
+
+# Generate confusion matrix (positive = "1")
+cm <- confusionMatrix(data$scored.class, data$class, positive = "1")
+
+# Print confusion matrix summary
+cm
+
+# Extract caret metrics
+caret_accuracy    <- cm$overall["Accuracy"]
+caret_sensitivity <- cm$byClass["Sensitivity"]
+caret_specificity <- cm$byClass["Specificity"]
+
+# Compare with custom results from Question 11
+comparison_df <- data.frame(
+  Metric = c("Accuracy", "Sensitivity (Recall)", "Specificity"),
+  Custom_Functions = round(c(accuracy, sensitivity, specificity), 4),
+  Caret_Package = round(c(caret_accuracy, caret_sensitivity, caret_specificity), 4)
+)
+
+knitr::kable(comparison_df, caption = "Comparison: Custom Functions vs. caret Package")
+
+
+```
+
+**Question 12 Response:** The results produced by the `caret` package
+matched our custom accuracy value exactly (0.8066).However, sensitivity
+and specificity appear reversed compared with our manual
+calculations.This difference occurs because our custom confusion matrix
+used `table(Actual,Predicted)` while `caret` uses
+`confusionMatrix(Predicted, Actual)`.\
+As a result, the orientation of true and predicted classes is swapped,
+causing sensitivity and specificity to be reported in opposite order.
+After accounting for this orientation difference, both methods yield
+identical results, confirming that our custom metric functions were
+implemented correctly.
+
+**Question 13**. Investigate the pROC package. Use it to generate an ROC
+curve for the data set. How do the results compare with your own
+functions?
+
+```{r}
+library(pROC)
+
+# Generate ROC curve using pROC
+roc_obj <- roc(data$class, data$scored.probability)
+
+# Plot the ROC curve
+plot(roc_obj, col = "blue", lwd = 2, main = "ROC Curve using pROC Package")
+
+# Calculate AUC using pROC
+pROC_auc <- auc(roc_obj)
+pROC_auc
+
+# Compare with our custom AUC from Question 11
+comparison_auc <- data.frame(
+  Source = c("Custom ROC Function", "pROC Package"),
+  AUC_Value = round(c(auc_value, as.numeric(pROC_auc)), 4)
+)
+
+knitr::kable(comparison_auc, caption = "Comparison of AUC Values: Custom vs. pROC")
+
+```
+
+**Question 13 Response:** Using the **`pROC`** package, we generated an
+ROC curve and calculated the AUC for our dataset. The AUC from `pROC` (≈
+0.8503) matched the value from our custom ROC function, confirming that
+our manual implementation was accurate.This shows that the model
+performs well at distinguishing between classes and that both methods
+produce consistent results.
